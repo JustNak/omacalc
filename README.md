@@ -11,18 +11,19 @@ Install via the Omarchy Package Repository via the `omacalc` package.
 
 ## Usage
 
-The keypad covers the basics: the four arithmetic operators with the usual
-precedence (`×` and `÷` before `+` and `−`), decimals, percent, sign toggle,
-and backspace. The expression builds up above the display and stays visible
-with the result after `=`, so `42 × 3 + 7` reads back exactly as it was entered.
+The keypad covers the basics: the four arithmetic operators, decimals, percent,
+sign toggle, and backspace. The expression builds up above the display and stays
+visible with the result after `=`, so `42 × 3 + 7` reads back exactly as it was
+entered. Evaluation folds `^` first and right-associatively, then `×` and `÷`,
+then `+` and `−`.
 
-Percent follows the familiar calculator convention: with a pending `+` or `−`
-it takes that percentage of the running total (`200 + 10 % =` gives `220`),
-while with `×` or `÷` — or on its own — it simply divides by 100.
+Percent follows the familiar calculator convention. With a pending `+` or `−`
+it takes that percentage of the running total (`200 + 10 % =` gives `220`).
+With `×`, `÷`, or `^`, or with no pending operator, it divides by 100.
 
 Everything works from the keyboard too:
 
-- `0-9`, `.`, `+`, `-`, `*`, `/`, and `%` enter digits and operators.
+- `0-9`, `.`, `+`, `-`, `*`, `/`, `^`, and `%` enter digits and operators.
 - `Enter` or `=` calculates.
 - `Backspace` deletes the last digit.
 - `C` or `Escape` clears.

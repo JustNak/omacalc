@@ -1,6 +1,7 @@
 #include <QtTest>
 #include <QClipboard>
 #include <QGuiApplication>
+#include <cmath>
 
 #include "backend.h"
 
@@ -27,6 +28,38 @@ private slots:
         Backend calculator;
         QCOMPARE(calculator.display(), QStringLiteral("0"));
         QCOMPARE(calculator.expression(), QString());
+    }
+
+    void calculatesPowers() {
+        Backend calculator;
+        press(calculator, "2 ^ 2 =");
+        QCOMPARE(calculator.display(), QStringLiteral("4"));
+
+        press(calculator, "clear 2 × 3 ^ 2 =");
+        QCOMPARE(calculator.display(), QStringLiteral("18"));
+
+        press(calculator, "clear 2 ^ 3 × 2 =");
+        QCOMPARE(calculator.display(), QStringLiteral("16"));
+
+        press(calculator, "clear 2 ^ 3 ^ 2 =");
+        QCOMPARE(calculator.display(), QStringLiteral("512"));
+
+        press(calculator, "clear 2 ^ 0 =");
+        QCOMPARE(calculator.display(), QStringLiteral("1"));
+
+        press(calculator, "clear 2 ^ 3 = ^ 2 =");
+        QCOMPARE(calculator.display(), QStringLiteral("64"));
+
+        press(calculator, "clear 2 sign ^ 3 =");
+        QCOMPARE(calculator.display(), QStringLiteral("-8"));
+
+        press(calculator, "clear 0 ^ 0 =");
+        QCOMPARE(calculator.display(), QStringLiteral("Error"));
+        press(calculator, "5");
+        QCOMPARE(calculator.display(), QStringLiteral("5"));
+
+        press(calculator, "clear 2 sign ^ 0 . 5 =");
+        QCOMPARE(calculator.display(), QStringLiteral("Error"));
     }
 
     void calculatesWithPrecedence() {
@@ -86,9 +119,12 @@ private slots:
         press(calculator, "clear 2 0 0 - 1 0 % =");
         QCOMPARE(calculator.display(), QStringLiteral("180"));
 
-        // With × or ÷, or standalone, x% is simply x ÷ 100.
+        // With ×, ÷, or ^, or standalone, x% is simply x ÷ 100.
         press(calculator, "clear 2 0 0 × 1 0 % =");
         QCOMPARE(calculator.display(), QStringLiteral("20"));
+
+        press(calculator, "clear 2 ^ 1 0 % =");
+        QCOMPARE(calculator.display(), Backend::formatNumber(std::pow(2.0, 0.1)));
 
         press(calculator, "clear 5 0 %");
         QCOMPARE(calculator.display(), QStringLiteral("0.5"));
@@ -202,6 +238,12 @@ private slots:
     void evaluatesTokens() {
         bool ok = false;
         QCOMPARE(Backend::evaluateTokens({"2", "+", "3", "×", "4"}, &ok), 14.0);
+        QVERIFY(ok);
+
+        QCOMPARE(Backend::evaluateTokens({"2", "^", "3"}, &ok), 8.0);
+        QVERIFY(ok);
+
+        QCOMPARE(Backend::evaluateTokens({"2", "^", "3", "^", "2"}, &ok), 512.0);
         QVERIFY(ok);
 
         Backend::evaluateTokens({"2", "+"}, &ok);
