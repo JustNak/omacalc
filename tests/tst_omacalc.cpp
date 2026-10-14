@@ -54,12 +54,15 @@ private slots:
         QCOMPARE(calculator.display(), QStringLiteral("-8"));
 
         press(calculator, "clear 0 ^ 0 =");
+        QCOMPARE(calculator.display(), QStringLiteral("1"));
+
+        press(calculator, "clear 0 ^ 1 sign =");
         QCOMPARE(calculator.display(), QStringLiteral("Error"));
-        press(calculator, "5");
-        QCOMPARE(calculator.display(), QStringLiteral("5"));
 
         press(calculator, "clear 2 sign ^ 0 . 5 =");
         QCOMPARE(calculator.display(), QStringLiteral("Error"));
+        press(calculator, "5");
+        QCOMPARE(calculator.display(), QStringLiteral("5"));
     }
 
     void calculatesWithPrecedence() {

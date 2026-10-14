@@ -338,9 +338,8 @@ double Backend::evaluateTokens(const QStringList &tokens, bool *ok) {
 
         const double base = values.at(i);
         const double exponent = values.at(i + 1);
-        // IEEE pow(0, 0) is 1; negative^non-integer is complex. Both error.
-        if ((base == 0.0 && exponent == 0.0)
-                || (base < 0.0 && std::floor(exponent) != exponent))
+        // A negative base with a fractional exponent has no real result.
+        if (base < 0.0 && std::floor(exponent) != exponent)
             return 0;
 
         const double powered = std::pow(base, exponent);
