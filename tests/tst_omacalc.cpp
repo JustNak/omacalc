@@ -1,8 +1,14 @@
 #include <QtTest>
 #include <QClipboard>
+#include <QElapsedTimer>
 #include <QGuiApplication>
+#include <QRect>
+#include <QSettings>
+#include <QVariant>
+#include <cmath>
 
 #include "backend.h"
+#include "systemtheme.h"
 
 namespace {
 void press(Backend &calculator, const QString &keys) {
@@ -27,6 +33,41 @@ private slots:
         Backend calculator;
         QCOMPARE(calculator.display(), QStringLiteral("0"));
         QCOMPARE(calculator.expression(), QString());
+    }
+
+    void calculatesPowers() {
+        Backend calculator;
+        press(calculator, "2 ^ 2 =");
+        QCOMPARE(calculator.display(), QStringLiteral("4"));
+
+        press(calculator, "clear 2 × 3 ^ 2 =");
+        QCOMPARE(calculator.display(), QStringLiteral("18"));
+
+        press(calculator, "clear 2 ^ 3 × 2 =");
+        QCOMPARE(calculator.display(), QStringLiteral("16"));
+
+        press(calculator, "clear 2 ^ 3 ^ 2 =");
+        QCOMPARE(calculator.display(), QStringLiteral("512"));
+
+        press(calculator, "clear 2 ^ 0 =");
+        QCOMPARE(calculator.display(), QStringLiteral("1"));
+
+        press(calculator, "clear 2 ^ 3 = ^ 2 =");
+        QCOMPARE(calculator.display(), QStringLiteral("64"));
+
+        press(calculator, "clear 2 sign ^ 3 =");
+        QCOMPARE(calculator.display(), QStringLiteral("-8"));
+
+        press(calculator, "clear 0 ^ 0 =");
+        QCOMPARE(calculator.display(), QStringLiteral("1"));
+
+        press(calculator, "clear 0 ^ 1 sign =");
+        QCOMPARE(calculator.display(), QStringLiteral("Error"));
+
+        press(calculator, "clear 2 sign ^ 0 . 5 =");
+        QCOMPARE(calculator.display(), QStringLiteral("Error"));
+        press(calculator, "5");
+        QCOMPARE(calculator.display(), QStringLiteral("5"));
     }
 
     void calculatesWithPrecedence() {
@@ -86,9 +127,12 @@ private slots:
         press(calculator, "clear 2 0 0 - 1 0 % =");
         QCOMPARE(calculator.display(), QStringLiteral("180"));
 
-        // With × or ÷, or standalone, x% is simply x ÷ 100.
+        // With ×, ÷, or ^, or standalone, x% is simply x ÷ 100.
         press(calculator, "clear 2 0 0 × 1 0 % =");
         QCOMPARE(calculator.display(), QStringLiteral("20"));
+
+        press(calculator, "clear 2 ^ 1 0 % =");
+        QCOMPARE(calculator.display(), Backend::formatNumber(std::pow(2.0, 0.1)));
 
         press(calculator, "clear 5 0 %");
         QCOMPARE(calculator.display(), QStringLiteral("0.5"));
@@ -204,11 +248,88 @@ private slots:
         QCOMPARE(Backend::evaluateTokens({"2", "+", "3", "×", "4"}, &ok), 14.0);
         QVERIFY(ok);
 
+        QCOMPARE(Backend::evaluateTokens({"2", "^", "3"}, &ok), 8.0);
+        QVERIFY(ok);
+
+        QCOMPARE(Backend::evaluateTokens({"2", "^", "3", "^", "2"}, &ok), 512.0);
+        QVERIFY(ok);
+
         Backend::evaluateTokens({"2", "+"}, &ok);
         QVERIFY(!ok);
 
         Backend::evaluateTokens({"1", "÷", "0"}, &ok);
         QVERIFY(!ok);
+    }
+
+    void opensAtTheDesignSizeForTheTextScale() {
+        Backend calculator;
+        calculator.setTextScale(1);
+        QVariantMap size = calculator.defaultWindowSize();
+        QCOMPARE(size.value(QStringLiteral("width")).toInt(), 400);
+        QCOMPARE(size.value(QStringLiteral("height")).toInt(), 568);
+
+        calculator.setTextScale(1.5);
+        size = calculator.defaultWindowSize();
+        QCOMPARE(size.value(QStringLiteral("width")).toInt(), 600);
+        QCOMPARE(size.value(QStringLiteral("height")).toInt(), 852);
+
+        // Below the design size the window stays at Main.qml's minimum.
+        calculator.setTextScale(0.5);
+        size = calculator.defaultWindowSize();
+        QCOMPARE(size.value(QStringLiteral("width")).toInt(), 300);
+        QCOMPARE(size.value(QStringLiteral("height")).toInt(), 430);
+
+        calculator.setTextScale(qQNaN());
+        size = calculator.defaultWindowSize();
+        QCOMPARE(size.value(QStringLiteral("width")).toInt(), 400);
+        QCOMPARE(size.value(QStringLiteral("height")).toInt(), 568);
+    }
+
+    void dropsASavedWindowRectangle() {
+        QSettings written;
+        written.setValue(QStringLiteral("window/geometry"), QRect(0, 0, 1896, 1030));
+        written.setValue(QStringLiteral("window/maximized"), true);
+        written.setValue(QStringLiteral("unrelated"), QStringLiteral("kept"));
+        written.sync();
+
+        Backend calculator;
+        Q_UNUSED(calculator);
+
+        QSettings stored;
+        QVERIFY(!stored.contains(QStringLiteral("window/geometry")));
+        QVERIFY(!stored.contains(QStringLiteral("window/maximized")));
+        QCOMPARE(stored.value(QStringLiteral("unrelated")).toString(), QStringLiteral("kept"));
+    }
+
+    void normalizesThePortalTextScale() {
+        bool known = false;
+        QCOMPARE(SystemTheme::normalizedTextScale(QVariant(1.25), &known), 1.25);
+        QVERIFY(known);
+
+        known = false;
+        QCOMPARE(SystemTheme::normalizedTextScale(QVariant(4.0), &known), 3.0);
+        QVERIFY(known);
+
+        known = false;
+        QCOMPARE(SystemTheme::normalizedTextScale(QVariant(0.1), &known), 0.5);
+        QVERIFY(known);
+
+        known = false;
+        QCOMPARE(SystemTheme::normalizedTextScale(QVariant(0.0), &known), 1.0);
+        QVERIFY(!known);
+
+        known = false;
+        QCOMPARE(SystemTheme::normalizedTextScale(QVariant(QStringLiteral("nope")), &known), 1.0);
+        QVERIFY(!known);
+    }
+
+    void readsThePortalTextScaleWithoutStalling() {
+        QElapsedTimer timer;
+        timer.start();
+        SystemTheme theme;
+        QVERIFY(timer.elapsed() < 2000);
+        QVERIFY(theme.textScale() >= 0.5);
+        QVERIFY(theme.textScale() <= 3.0);
     }
 
     void formatsNumbers() {
@@ -236,11 +357,11 @@ private slots:
         QFile colorsFile(themeDirectory + QStringLiteral("/colors.toml"));
         QVERIFY(colorsFile.open(QIODevice::WriteOnly | QIODevice::Text));
         const QByteArray palette(
-            "mode = \"light\"\n"
-            "accent = \"#112233\"\n"
-            "selection = \"#445566\"\n"
-            "background = \"#fefefe\"\n"
-            "foreground = \"#101010\"\n");
+            "mode = \"light\" # a light theme\n"
+            "accent = \"#112233\" # button accent\n"
+            "selection = \"#445566\" # selection color\n"
+            "background = \"#fefefe\" # canvas\n"
+            "foreground = \"#101010\" # text\n");
         QCOMPARE(colorsFile.write(palette), qint64(palette.size()));
         colorsFile.close();
 
@@ -250,6 +371,21 @@ private slots:
         QCOMPARE(calculator.themeAccent(), QStringLiteral("#112233"));
         QCOMPARE(calculator.themeSelection(), QStringLiteral("#445566"));
         QVERIFY(!calculator.darkMode());
+
+        QVERIFY(colorsFile.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text));
+        const QByteArray invalidPalette(
+            "mode = \"light\"\n"
+            "background = \"not a color\" # invalid canvas\n"
+            "foreground = #101010 # bare hex text\n");
+        QCOMPARE(colorsFile.write(invalidPalette), qint64(invalidPalette.size()));
+        colorsFile.close();
+
+        Backend withInvalidColor;
+        QCOMPARE(withInvalidColor.themeBackground(), QStringLiteral("#ffffff"));
+        QCOMPARE(withInvalidColor.themeForeground(), QStringLiteral("#101010"));
+        QCOMPARE(withInvalidColor.themeAccent(), QStringLiteral("#2077b2"));
+        QCOMPARE(withInvalidColor.themeSelection(), QStringLiteral("#2077b2"));
+        QVERIFY(!withInvalidColor.darkMode());
     }
 
 private:

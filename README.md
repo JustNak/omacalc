@@ -15,14 +15,17 @@ The keypad covers the basics: the four arithmetic operators with the usual
 precedence (`×` and `÷` before `+` and `−`), decimals, percent, sign toggle,
 and backspace. The expression builds up above the display and stays visible
 with the result after `=`, so `42 × 3 + 7` reads back exactly as it was entered.
+From the keyboard, `^` raises to a power ahead of everything else, so
+`2 × 3 ^ 2` gives `18`.
 
 Percent follows the familiar calculator convention: with a pending `+` or `−`
 it takes that percentage of the running total (`200 + 10 % =` gives `220`),
-while with `×` or `÷` — or on its own — it simply divides by 100.
+while with `×`, `÷`, or `^` — or on its own — it simply divides by 100.
 
 Everything works from the keyboard too:
 
-- `0-9`, `.`, `+`, `-`, `*`, `/`, and `%` enter digits and operators.
+- `0-9`, `.`, `+`, `-`, `*` or `x`, `/`, `^`, and `%` enter digits and operators.
+  The numpad enters digits whether or not NumLock is on.
 - `Enter` or `=` calculates.
 - `Backspace` deletes the last digit.
 - `C` or `Escape` clears.
